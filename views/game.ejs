@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess.com live game</title>
+</head>
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+    }
+    .board{
+        display: grid;
+        aspect-ratio: 1;
+        grid-template-columns: repeat(8,1fr);
+        width: min(90vw,90vh);
+        max-height: 100%;
+    }
+    .board-wrapper{
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 0;
+        flex: 1;
+    }
+    .black{
+        background-color: rgb(250, 146, 19);
+    }
+    .white{
+        background-color: rgb(255, 216, 139);
+    }
+    .white-piece{
+        color: white;
+    }
+    .black-piece{
+        color: black;
+    }
+    .hoverable:hover{
+        cursor: grab;
+    }
+    .square{
+      text-align: center;
+      aspect-ratio: 1;
+    }
+    .widgets{
+        display: flex;
+        width: 100vw;
+        height: 100vh;
+        gap: 0; 
+    }
+    .chatpanel{
+        width: clamp(267px,30vw,400px);
+        background-color: black;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    .messagepanel{
+        display: flex;
+        flex-direction: column;
+        flex:1;
+        overflow-y: auto;
+    }
+    .chatwidgets{
+        margin-top: auto;
+        display: flex;
+        gap: 5px;
+    }
+    .message{
+        width: fit-content;
+        color: white;
+        word-wrap: break-word;
+    }
+</style>
+<body>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <div class="widgets">
+        <div class="board-wrapper"><div class="board"></div></div>
+        <div class="chatpanel">
+            <div class="messagepanel">
+            </div>
+            <div class="chatwidgets">
+                <input id="message" type="text" placeholder="message">
+                <button id="send">send</button>
+            </div> 
+        </div>
+    </div>
+   
+    <script>
+        const socket = io();
+        socket.emit('join_game','<%=id%>');
+        socket.on('spectating',(info)=>{
+            alert("you are spectating");
+        });
+        const board = document.querySelector('.board');
+        window.selected = false;
+        window.selectedSqr = null;
+        function populate(arr){
+            board.innerHTML = '';
+             for (let i = 0; i<8; i++){
+                for (let j = 0; j<8; j++){
+                    const square = document.createElement('div');
+                    const piece = arr[i][j];
+                    let pieceColor;
+                    if (piece && piece.type){
+                        if (piece.color == 'w'){
+                            pieceColor='white-piece';
+                        }
+                        else if (piece.color == 'b'){
+                            pieceColor='black-piece';
+                        }
+                        square.innerHTML = `<p class=${pieceColor}>${piece.type}</p>`;
+                    }
+                    else{
+                        square.innerHTML = '';
+                    }
+                    square.classList.add('square',(i+j)%2 == 0 ? 'white' : 'black');
+                    if (arr[i][j]) square.classList.add('hoverable');
+                    square.dataset.x = j;
+                    square.dataset.y = i;
+                    board.appendChild(square);
+                    square.addEventListener('click',()=>{
+                        if (selected){
+                            socket.emit('request_move',{id:'<%=id%>',move:[...selectedSqr,j,i]});
+                            window.selected = false;
+                            window.selectedSqr = null;
+                        }
+                        if (!selected){
+                            window.selected = true;
+                            window.selectedSqr = [j,i];
+                        }
+                    });                        
+                    }
+                }
+            }
+        socket.on('position_sent',(info)=>{
+            populate(info.board);
+        });
+        socket.on('validated_move',(info)=>{
+            if (!info.ok) return;
+            populate(info.board);
+        })
+        const sendmessage = document.getElementById("send");
+        sendmessage.onclick = function(){
+            socket.emit('send_message',{message:document.getElementById("message").value, id:'<%=id%>'});
+        }
+        socket.on('message_validated',msg=>{
+            let newmsg = document.createElement('div');
+            newmsg.classList.add('message');
+            newmsg.innerHTML = msg;
+            document.getElementById("message").value = '';
+            document.querySelector(".messagepanel").appendChild(newmsg);
+        });
+    </script>
+</body>
+</html>

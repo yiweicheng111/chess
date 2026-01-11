@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess.com</title>
+</head>
+<body>
+    <button id="play">Play new game</button>
+    <script>
+        const playbtn = document.getElementById("play");
+        playbtn.onclick = function(){
+            fetch("/create_game",{method:"GET"}).then(res=>res.json()).then(data=>{window.location.href = `/game/${data["id"]}`});
+        }
+    </script>
+</body>
+</html>
