@@ -71,7 +71,7 @@ app.get(`/game/:id`,(req,res)=>{
     let gameid = req.params.id;
     res.render('game',{id:gameid})
 });
-server.listen(3000,'0.0.0.0',()=>{
+server.listen(process.env.port || 3000,()=>{
     console.log('listening');
 });
 
