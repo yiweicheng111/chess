@@ -62,7 +62,7 @@ io.on('connection',(socket)=>{
     });
 })
 app.get('/create_game',(req,res)=>{
-    res.json({id:1});
+    res.json({id:Object.keys(ROOMS).length});
 });
 app.get('/',(req,res)=>{
     res.render('index')
