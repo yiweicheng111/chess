@@ -89,7 +89,12 @@
    
     <script>
         const socket = io();
-        socket.emit('join_game','<%=id%>');
+        socket.emit('join_game',{'id':'<%=id%>'});
+        socket.emit("get_color");
+        let color;
+        socket.on("color_emitted",c=>{
+            color = c;
+        });
         socket.on('spectating',(info)=>{
             alert("you are spectating");
         });
@@ -97,11 +102,17 @@
         window.selected = false;
         window.selectedSqr = null;
         function populate(arr){
+                        console.log(color);
+            if (color == 'b'){
+                arr = [...arr].reverse().map(row=>[...row].reverse());
+            }
             board.innerHTML = '';
              for (let i = 0; i<8; i++){
                 for (let j = 0; j<8; j++){
                     const square = document.createElement('div');
-                    const piece = arr[i][j];
+                    const flippedI = color == 'w' ? i : 7-i;
+                    const flippedJ = color == 'w' ? j : 7-j;
+                    const piece = arr[i][j];                 
                     let pieceColor;
                     if (piece && piece.type){
                         if (piece.color == 'w'){
@@ -117,25 +128,38 @@
                     }
                     square.classList.add('square',(i+j)%2 == 0 ? 'white' : 'black');
                     if (arr[i][j]) square.classList.add('hoverable');
-                    square.dataset.x = j;
-                    square.dataset.y = i;
+                    square.dataset.x = i;
+                    square.dataset.y = j;
                     board.appendChild(square);
                     square.addEventListener('click',()=>{
                         if (selected){
-                            socket.emit('request_move',{id:'<%=id%>',move:[...selectedSqr,j,i]});
+                            socket.emit('request_move',{id:'<%=id%>',move:[...selectedSqr,flippedJ,flippedI]});
                             window.selected = false;
                             window.selectedSqr = null;
                         }
                         if (!selected){
                             window.selected = true;
-                            window.selectedSqr = [j,i];
+                            window.selectedSqr = [flippedJ,flippedI];
                         }
                     });                        
                     }
                 }
             }
-        socket.on('position_sent',(info)=>{
-            populate(info.board);
+        socket.on('inital_position_emitted',(info)=>{
+            if (color){
+                populate(info.board);
+            }
+            else{
+                socket.emit("get_position");
+            }
+        });
+        socket.on("position_emitted",position=>{
+            if (color){
+                populate(position);
+            }
+            else{
+                socket.emit("get_position");
+            }
         });
         socket.on('validated_move',(info)=>{
             if (!info.ok) return;

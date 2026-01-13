@@ -12,6 +12,16 @@ app.use('/static',express.static(path.join(__dirname,'static')));
 app.use(express.urlencoded({extended:true}));
 app.use(express.json())
 ROOMS = {}
+function makeNewGame(){
+    for (const [id,room] of Object.entries(ROOMS)){
+        if (!room.white || !room.black){
+            return id;
+        }
+    }
+    const newID = Object.keys(ROOMS).length;
+    ROOMS[newID] = {board:new Chess(), black:null, white:null};
+    return newID;
+}
 function stringify(move){
     const letter = 'abcdefgh';
     return letter[move[0]]+(8-move[1])+letter[move[2]]+(8-move[3]);
@@ -37,10 +47,10 @@ io.on('connection',(socket)=>{
         if (info.message.trim() == '') return;
         io.to(info.id).emit("message_validated",newmsg);
     });
-    socket.on('join_game',id=>{
-       if (!ROOMS[id]){
-         ROOMS[id] = {board:new Chess(), white:null, black:null};
-       }
+    socket.on('join_game',(info)=>{
+        let id = info?.id == undefined ? makeNewGame() : info.id ;
+        socket.data.roomID = id;
+        if (!ROOMS[id]) ROOMS[id] = {board:new Chess(), white:null, black:null};
         socket.join(id);
         if (!ROOMS[id].white){
             ROOMS[id].white = socket.id;
@@ -52,17 +62,24 @@ io.on('connection',(socket)=>{
         }
         else if (ROOMS[id].black != socket.id && ROOMS[id].white != socket.id){
             socket.emit("spectating",{});
-            socket.emit('position_sent',{board:ROOMS[id].board.board()});
+            socket.emit('inital_position_emitted',{board:ROOMS[id].board.board()});
             return;
        }
-       io.to(id).emit('position_sent',{board:ROOMS[id].board.board()});
+       io.to(id).emit('inital_position_emitted',{board:ROOMS[id].board.board()});
     });
     socket.on('request_move',info=>{
-        io.to(info.id).emit('validated_move',{ok:islegal(stringify(info.move),info.id,socket),board:ROOMS[info.id].board.board()});
+        if (!ROOMS[socket.data.roomID]) return;
+        io.to(socket.data.roomID).emit('validated_move',{ok:islegal(stringify(info.move),info.id,socket),board:ROOMS[socket.data.roomID].board.board()});
     });
+    socket.on("get_color",()=>{
+        socket.emit("color_emitted",socket.data.color);
+    });
+    socket.on("get_position",()=>{
+        socket.emit("position_emitted",ROOMS[socket.data.roomID].board.board());
+    })
 })
 app.get('/create_game',(req,res)=>{
-    res.json({id:Object.keys(ROOMS).length});
+    res.json({id:makeNewGame()});
 });
 app.get('/',(req,res)=>{
     res.render('index')
