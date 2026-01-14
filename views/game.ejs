@@ -16,6 +16,7 @@
         grid-template-columns: repeat(8,1fr);
         width: min(90vw,90vh);
         max-height: 100%;
+        gap: 0;
     }
     .board-wrapper{
         display: flex;
@@ -25,10 +26,10 @@
         flex: 1;
     }
     .black{
-        background-color: rgb(250, 146, 19);
+        background-color: rgb(98, 183, 109);
     }
     .white{
-        background-color: rgb(255, 216, 139);
+        background-color: rgb(230, 230, 230);
     }
     .white-piece{
         color: white;
@@ -42,6 +43,7 @@
     .square{
       text-align: center;
       aspect-ratio: 1;
+      display: block;
     }
     .widgets{
         display: flex;
@@ -71,6 +73,12 @@
         width: fit-content;
         color: white;
         word-wrap: break-word;
+    }
+    .square-image{
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
     }
 </style>
 <body>
@@ -102,13 +110,13 @@
         window.selected = false;
         window.selectedSqr = null;
         function populate(arr){
-                        console.log(color);
+            console.log(color);
             if (color == 'b'){
                 arr = [...arr].reverse().map(row=>[...row].reverse());
             }
             board.innerHTML = '';
              for (let i = 0; i<8; i++){
-                for (let j = 0; j<8; j++){
+                for (let j = 0; j<8; j++){   
                     const square = document.createElement('div');
                     const flippedI = color == 'w' ? i : 7-i;
                     const flippedJ = color == 'w' ? j : 7-j;
@@ -121,7 +129,9 @@
                         else if (piece.color == 'b'){
                             pieceColor='black-piece';
                         }
-                        square.innerHTML = `<p class=${pieceColor}>${piece.type}</p>`;
+                        //square.innerHTML = `<img class="square" class=${pieceColor}>${piece.type}</p>`;
+                        const pieceLink = `/static/neo/${piece.color}${piece.type}.png`;
+                        square.innerHTML = `<img class="square-image" src='${pieceLink}' alt='${piece.type}'>`;
                     }
                     else{
                         square.innerHTML = '';
@@ -137,7 +147,7 @@
                             window.selected = false;
                             window.selectedSqr = null;
                         }
-                        if (!selected){
+                        else if (!selected){
                             window.selected = true;
                             window.selectedSqr = [flippedJ,flippedI];
                         }
@@ -145,7 +155,7 @@
                     }
                 }
             }
-        socket.on('inital_position_emitted',(info)=>{
+        socket.on('initial_position_emitted',(info)=>{
             if (color){
                 populate(info.board);
             }
@@ -153,21 +163,23 @@
                 socket.emit("get_position");
             }
         });
-        socket.on("position_emitted",position=>{
-            if (color){
-                populate(position);
-            }
-            else{
-                socket.emit("get_position");
-            }
+        socket.on("position_emitted",info=>{
+            populate(info.board);
         });
         socket.on('validated_move',(info)=>{
             if (!info.ok) return;
             populate(info.board);
         })
+        socket.on('checkmate',(info)=>{
+            const color = info["winner"] == 'w' ? 'white' : 'black';
+            alert(`${color} won by checkmate`);
+        })
+        socket.on('drawn',()=>{
+            alert("game drawn");
+        })
         const sendmessage = document.getElementById("send");
         sendmessage.onclick = function(){
-            socket.emit('send_message',{message:document.getElementById("message").value, id:'<%=id%>'});
+            socket.emit('send_message',{message:document.getElementById("message").value});
         }
         socket.on('message_validated',msg=>{
             let newmsg = document.createElement('div');

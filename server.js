@@ -45,7 +45,7 @@ io.on('connection',(socket)=>{
     socket.on("send_message",info=>{
         let newmsg = `${socket.id} said: ${info.message}`;
         if (info.message.trim() == '') return;
-        io.to(info.id).emit("message_validated",newmsg);
+        io.to(socket.data.roomID).emit("message_validated",newmsg);
     });
     socket.on('join_game',(info)=>{
         let id = info?.id == undefined ? makeNewGame() : info.id ;
@@ -55,27 +55,37 @@ io.on('connection',(socket)=>{
         if (!ROOMS[id].white){
             ROOMS[id].white = socket.id;
             socket.data.color = 'w';
+            socket.emit("color_emitted",'w');
         }
        else if (!ROOMS[id].black){
             ROOMS[id].black = socket.id;
             socket.data.color = 'b';
+            socket.emit("color_emitted",'b');
         }
         else if (ROOMS[id].black != socket.id && ROOMS[id].white != socket.id){
             socket.emit("spectating",{});
-            socket.emit('inital_position_emitted',{board:ROOMS[id].board.board()});
+            socket.emit('initial_position_emitted',{board:ROOMS[id].board.board()});
             return;
        }
-       io.to(id).emit('inital_position_emitted',{board:ROOMS[id].board.board()});
+       io.to(id).emit('position_emitted',{board:ROOMS[id].board.board()});
     });
     socket.on('request_move',info=>{
         if (!ROOMS[socket.data.roomID]) return;
-        io.to(socket.data.roomID).emit('validated_move',{ok:islegal(stringify(info.move),info.id,socket),board:ROOMS[socket.data.roomID].board.board()});
+        let game = ROOMS[socket.data.roomID].board;
+        if (!ROOMS[socket.data.roomID]) return;
+        io.to(socket.data.roomID).emit('validated_move',{ok:islegal(stringify(info.move),socket.data.roomID,socket),board:ROOMS[socket.data.roomID].board.board()});
+        if (game.isCheckmate()){
+           io.to(socket.data.roomID).emit("checkmate",{"winner":game.turn()});
+        }
+        if (game.isStalemate() || game.isInsufficientMaterial() || game.isThreefoldRepetition()){
+            io.to(socket.data.roomID).emit("drawn");    
+        }
     });
     socket.on("get_color",()=>{
         socket.emit("color_emitted",socket.data.color);
     });
     socket.on("get_position",()=>{
-        socket.emit("position_emitted",ROOMS[socket.data.roomID].board.board());
+        socket.emit("position_emitted",{board:ROOMS[socket.data.roomID].board.board()});
     })
 })
 app.get('/create_game',(req,res)=>{
